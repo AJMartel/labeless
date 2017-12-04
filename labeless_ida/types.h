@@ -162,7 +162,8 @@ struct Settings
 		CS_Disabled				= 0,
 		CS_IDAComment			= 1 << 0, // means repeatable and non-repeatable
 		CS_LocalVar				= 1 << 1,
-		CS_FuncNameAsComment	= 1 << 2
+		CS_FuncNameAsComment	= 1 << 2,
+		CS_LocalVarAll			= 1 << 3
 	};
 	Q_DECLARE_FLAGS(CommentSyncFlags, CommentsSync);
 
@@ -178,6 +179,7 @@ struct Settings
 	bool removeFuncArgs;
 	OverwriteWarning overwriteWarning;
 	CommentSyncFlags commentsSync;
+	bool codeCompletion;
 
 	Settings(const std::string host_ = std::string(),
 		uint16_t port_ = 0,
@@ -189,7 +191,8 @@ struct Settings
 		bool postProcessFixCallJumps_ = false,
 		bool removeFuncArgs_ = false,
 		OverwriteWarning overwriteWarning_ = OW_AlwaysAsk,
-		CommentSyncFlags commentsSync_ = CS_Disabled);
+		CommentSyncFlags commentsSync_ = CS_Disabled,
+		bool codeCompletion_ = true);
 };
 
 struct LogItem
@@ -215,6 +218,12 @@ struct ScopedSignalBlocker
 	QList<QPointer<QObject>> items;
 	ScopedSignalBlocker(const QList<QPointer<QObject>>& items_);
 	virtual ~ScopedSignalBlocker();
+};
+
+struct ScopedWaitBox
+{
+	explicit ScopedWaitBox(const char* fmt, ...);
+	~ScopedWaitBox();
 };
 
 #if _MSC_VER >= 1800
@@ -268,3 +277,5 @@ typedef std::unordered_map<uint64_t, std::string> ExternRefDataMap;
 #if !defined(__NT__) && !defined(__unix__) && !defined(__unix__)
 #error "WIN32 and Linux/Unix platforms are supported"
 #endif
+
+#define PYTHON_EXTLANG_NAME "python"

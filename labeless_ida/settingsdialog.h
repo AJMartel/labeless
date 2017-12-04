@@ -61,6 +61,9 @@ private slots:
 	void on_fcbFont_currentFontChanged(const QFont& fnt);
 	void on_spbFontPointSize_valueChanged(int v);
 	void on_spbTabWidth_valueChanged(int v);
+	void on_bCheckForUpdates_clicked();
+	void on_chFuncLocalVarsAll_toggled(bool v);
+	void on_bgAutoCompletion_toggled(bool v);
 
 private:
 	void setUpPalette();

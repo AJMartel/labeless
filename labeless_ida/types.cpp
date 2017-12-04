@@ -37,7 +37,8 @@ Settings::Settings(const std::string host_,
 	bool postProcessFixCallJumps_,
 	bool removeFuncArgs_,
 	OverwriteWarning overwriteWarning_,
-	CommentSyncFlags commentsSync_)
+	CommentSyncFlags commentsSync_,
+	bool codeCompletion_)
 	: host(host_)
 	, port(port_)
 	, enabled(enabled_)
@@ -49,6 +50,7 @@ Settings::Settings(const std::string host_,
 	, removeFuncArgs(removeFuncArgs_)
 	, overwriteWarning(overwriteWarning_)
 	, commentsSync(commentsSync_)
+	, codeCompletion(codeCompletion_)
 {
 }
 
@@ -76,4 +78,17 @@ ScopedSignalBlocker::~ScopedSignalBlocker()
 	for (int i = 0; i < items.length(); ++i)
 		if (items.at(i))
 			items.at(i)->blockSignals(false);
+}
+
+ScopedWaitBox::ScopedWaitBox(const char* fmt, ...)
+{
+	va_list va;
+	va_start(va, fmt);
+	show_wait_box_v(fmt, va);
+	va_end(va);
+}
+
+ScopedWaitBox::~ScopedWaitBox()
+{
+	hide_wait_box();
 }

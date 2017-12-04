@@ -11,6 +11,7 @@
 
 #include <QColorDialog>
 #include <QGraphicsDropShadowEffect>
+#include <QMainWindow>
 #include <QMessageBox>
 #include <QTableWidgetItem>
 #include <QTextCharFormat>
@@ -18,7 +19,11 @@
 #include "types.h"
 #include "globalsettingsmanager.h"
 #include "pythonpalettemanager.h"
+#include "util/util_ida.h"
+#include "util/util_idapython.h"
+#include "util/util_python.h"
 #include "../common/version.h"
+
 
 namespace {
 
@@ -75,8 +80,9 @@ SettingsDialog::SettingsDialog(const Settings& settings, qulonglong currModBase,
 	m_UI->chIDAComments->setChecked(settings.commentsSync.testFlag(Settings::CS_IDAComment));
 	m_UI->chFuncLocalVars->setChecked(settings.commentsSync.testFlag(Settings::CS_LocalVar));
 	m_UI->chFuncNameAsComment->setChecked(settings.commentsSync.testFlag(Settings::CS_FuncNameAsComment));
+	m_UI->chFuncLocalVarsAll->setChecked(settings.commentsSync.testFlag(Settings::CS_LocalVarAll));
 
-	QLabel* const lVer = new QLabel(m_UI->tabWidget);
+	QLabel* const lVer = new QLabel(m_UI->tabCommon);
 	lVer->setText(QString("v %1").arg(LABELESS_VER_STR));
 	lVer->setStyleSheet("color: rgb(0x8a, 0x8a, 0x8a);");
 	QGraphicsDropShadowEffect* const effect = new QGraphicsDropShadowEffect(lVer);
@@ -84,13 +90,19 @@ SettingsDialog::SettingsDialog(const Settings& settings, qulonglong currModBase,
 	effect->setOffset(0);
 	effect->setColor(Qt::white);
 	lVer->setGraphicsEffect(effect);
-	m_UI->tabWidget->setCornerWidget(lVer);
+	m_UI->tw->setCornerWidget(lVer);
 	m_UI->fcbFont->setFontFilters(QFontComboBox::MonospacedFonts);
+
+	m_UI->bgAutoCompletion->setChecked(settings.codeCompletion);
+	const bool jediAvailable = util::python::jedi::is_available();
+	m_UI->lbJediStatus->setText(QString("<p style=\"color: %1\">%2</p>").arg(jediAvailable ? "green": "red").arg(jediAvailable ? tr("available") : tr("not available")));
 
 	setUpPalette();
 	//adjustSize();
 	setMaximumSize(size());
 	setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
+
+	m_UI->tw->setCurrentIndex(0);
 }
 
 SettingsDialog::~SettingsDialog()
@@ -177,6 +189,9 @@ void SettingsDialog::getSettings(Settings& result)
 		result.commentsSync |= Settings::CS_LocalVar;
 	if (m_UI->chFuncNameAsComment->isChecked())
 		result.commentsSync |= Settings::CS_FuncNameAsComment;
+	if (m_UI->chFuncLocalVarsAll->isChecked())
+		result.commentsSync |= Settings::CS_LocalVarAll;
+	result.codeCompletion = m_UI->bgAutoCompletion->isChecked();
 }
 
 void SettingsDialog::changeEvent(QEvent *e)
@@ -244,12 +259,12 @@ bool SettingsDialog::validate() const
 	const QString hostOrIP = m_UI->cbOllyIP->currentText();
 	if (!kRxIpAddress.exactMatch(hostOrIP) && !kRxHostname.exactMatch(hostOrIP))
 	{
-		info(tr("Invalid Olly's hostname/IP address entered").toStdString().c_str());
+		info(tr("Invalid debugger's hostname/IP address entered").toStdString().c_str());
 		return false;
 	}
 	if (m_UI->sbOllyPort->value() <= 0 || m_UI->sbOllyPort->value() >= UINT16_MAX)
 	{
-		info(tr("Invalid Olly's Port entered").toStdString().c_str());
+		info(tr("Invalid debugger's Port entered").toStdString().c_str());
 		return false;
 	}
 
@@ -437,6 +452,53 @@ void SettingsDialog::on_spbTabWidth_valueChanged(int v)
 	pPalette->tabWidth = v;
 	m_PaletteChanged = true;
 	m_UI->tePalettePreview->setPalette(*pPalette);
+}
+
+void SettingsDialog::on_bCheckForUpdates_clicked()
+{
+	util::idapython::github::ReleaseInfo ri;
+	std::string error;
+	bool ok = false;
+	{
+		ScopedWaitBox wb("HIDECANCEL\nLabeless: checking for updates...");
+		Q_UNUSED(wb);
+		ok = util::idapython::github::getLatestRelease(ri, error);
+	}
+	if (!ok)
+	{
+		QMessageBox::warning(util::ida::findIDAMainWindow(),
+				tr("Error"),
+				tr("Unable to get the latest build, error: %1")
+					.arg(QString::fromStdString(error)));
+		return;
+	}
+
+	static const QString currentVer = QString("v_%1").arg(LABELESS_VER_STR).replace(".", "_");
+	if (currentVer == ri.tag)
+	{
+		QMessageBox::information(util::ida::findIDAMainWindow(),
+			tr(":)"),
+			tr("You are using the latest version"));
+		return;
+	}
+
+	QMessageBox::information(util::ida::findIDAMainWindow(),
+			tr(":)"),
+			tr("New release is available:<br><b>ver</b>: %1<br><b>name</b>: %2<br><a href=\"%3\">View on GitHub</a>")
+				.arg(ri.tag)
+				.arg(ri.name)
+				.arg(ri.url));
+}
+
+void SettingsDialog::on_chFuncLocalVarsAll_toggled(bool v)
+{
+	m_UI->chFuncLocalVars->setEnabled(!v);
+}
+
+void SettingsDialog::on_bgAutoCompletion_toggled(bool v)
+{
+	if (v)
+		QMessageBox::information(this, tr("Note!"), tr("To turn on auto-completion restart is required"));
 }
 
 bool SettingsDialog::getLightPalette(PythonPalette& result) const
